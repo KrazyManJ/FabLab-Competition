@@ -1,8 +1,5 @@
 #include <LiquidCrystal.h>
 
-// C++ code
-//
-
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 byte degree[] = {
@@ -29,9 +26,9 @@ int pr = 0;
 void loop()
 {
   lcd.clear();
-  writeFadedText(0,"www.vassboskovice.cz");
+  writeFadedText(0,"vice info na www.vassboskovice.cz");
   writeTemp(12,1);
-  delay(500);
+  delay(100);
 }
 
 int trackTemp(){
@@ -39,8 +36,9 @@ int trackTemp(){
 }
 
 void writeTemp(int x,int y){
-  lcd.setCursor(x, y);
-  lcd.print(""+String(trackTemp()));
+  int temp = trackTemp();
+  lcd.setCursor(temp < 100 ? 12 : 11, 1);
+  lcd.print(""+String(temp));
   lcd.write(byte(0));
   lcd.print("C");
 }
@@ -52,7 +50,7 @@ void writeFadedText(int y,String text){
   }
   else if (pr < text.length()+16){
   	lcd.setCursor(floor(pr-text.length()),y);
-    lcd.print(text);
+    lcd.print(text.substring(0,16));
   }
   else pr = 0;
   pr++;
