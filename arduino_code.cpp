@@ -1,17 +1,15 @@
 #include <LiquidCrystal.h>
 
 //
-// DEFINING CONSTANTS
+// CONSTANTS
 //
 
 #define LCD_SIZE 16
 #define SCROLL_TEXT_SPEED 50
 #define TIME_DATE_SWITCH_DELAY 5000
 //PINS
-#define BUTTON_READ 2
-#define BUTTON_OUTPUT 3
 #define TEMP_INPUT_PIN A1
-#define CONTRAST_OUTPUT A0
+#define CONTRAST_OUTPUT_PIN A0
 
 //
 // LCD UTILS
@@ -37,13 +35,12 @@ byte degree[] = {
 void setup(){
   pinMode(TEMP_INPUT_PIN,INPUT);
   pinMode(CONTRAST_OUTPUT,OUTPUT);
-  pinMode(BUTTON_OUTPUT, OUTPUT);
-  pinMode(BUTTON_READ, INPUT);
   
-  analogWrite(CONTRAST_OUTPUT,0);
+  analogWrite(CONTRAST_OUTPUT_PIN,0);
   lcd.createChar(0, degree);
   lcd.begin(16, 2);
-//  Serial.begin(9600);
+  Serial.begin(9600);
+  registerButtons();
 }
 
 //
@@ -54,27 +51,62 @@ void loop(){
   bool pressed = false;
   bool switched = false;
   
-  writeFadedText(0,"www.vassboskovice.cz");
+  writeFadedText(0,"www.vosassboskovice.cz");
   writeTimeDate(0,1);
   writeTemp(12,1);
   handleButton();
+  delay(1);
 }
 
 //
-// BUTTON
+// BUTTONS
 //
 
+typedef struct {
+  int input;
+  byte output;
+  long milliTime;
+} buttonLedBind;
+
+const buttonLedBind buttons[] {
+  {2,A5,5000},
+  {3,A4,4000},
+  {4,A3,1800},
+  {5,A2,2600},
+};
+
+void registerButtons(){
+  for (int i = 0; i < sizeof(buttons)/sizeof(buttonLedBind); i++){
+  	pinMode(buttons[i].input, INPUT);
+    pinMode(buttons[i].output, OUTPUT);
+  }
+}
+
 bool pressed = false;
-bool switched = false;
+long buttonTask = 0;
+byte pinOn = 0;
 
 void handleButton(){
-  int btn = digitalRead(BUTTON_READ);
-  if (btn == 1 && !pressed){
-    pressed = true;
-    switched = !switched;
-  	digitalWrite(BUTTON_OUTPUT,switched);
+  if (!pressed){
+  	for (int i = 0; i < sizeof(buttons)/sizeof(buttonLedBind); i++){
+      if (digitalRead(buttons[i].input) == HIGH){
+        pressed = true;
+        pinOn = buttons[i].output;
+      	analogDigitalWrite(buttons[i].output,true);
+        buttonTask = millis()+buttons[i].milliTime;
+      }
+    }
   }
-  else if (btn == 0 && pressed) pressed = false;
+  else{
+    if (millis() > buttonTask){
+      pressed = false;
+      analogDigitalWrite(pinOn,false);
+    }
+  }
+}
+
+void analogDigitalWrite(byte pin, bool v){
+  analogWrite(pin,v ? 255 : 0);
 }
 
 //
