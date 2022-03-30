@@ -7,7 +7,7 @@
 #define LCD_SIZE 16
 #define SCROLL_TEXT_SPEED 50
 #define TIME_DATE_SWITCH_DELAY 5000
-//PINS
+
 #define TEMP_INPUT_PIN A1
 #define CONTRAST_OUTPUT_PIN A0
 
@@ -48,9 +48,6 @@ void setup(){
 //
 
 void loop(){
-  bool pressed = false;
-  bool switched = false;
-  
   writeFadedText(0,"www.vosassboskovice.cz");
   writeTimeDate(0,1);
   writeTemp(12,1);
@@ -140,7 +137,7 @@ void writeTimeDate(int x, int y){
     date_or_time = !date_or_time;
   }
   lcd.setCursor(x,y);
-  lcd.print(date_or_time ? "30.03." : "19:00 ");
+  lcd.print(date_or_time ? "30.03.2022" : "19:00     ");
 }
 
 //
