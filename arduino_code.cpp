@@ -34,7 +34,7 @@ byte degree[] = {
 
 void setup(){
   pinMode(TEMP_INPUT_PIN,INPUT);
-  pinMode(CONTRAST_OUTPUT,OUTPUT);
+  pinMode(CONTRAST_OUTPUT_PIN,OUTPUT);
   
   analogWrite(CONTRAST_OUTPUT_PIN,0);
   lcd.createChar(0, degree);
