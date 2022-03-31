@@ -7,6 +7,7 @@
 #define LCD_SIZE 16
 #define SCROLL_TEXT_SPEED 50
 #define TIME_DATE_SWITCH_DELAY 5000
+#define DOT_BLINK_TIME 80
 
 #define TEMP_INPUT_PIN A1
 #define CONTRAST_OUTPUT_PIN A0
@@ -55,6 +56,22 @@ void loop(){
   delay(1);
 }
 
+class MillisTimer {
+  long starttime;
+  int delay;
+  public:
+    MillisTimer(int d){
+      delay = d;
+      starttime = millis();
+    }
+    bool isReady(){
+      return millis() > (starttime + delay);
+    }
+    void reset(){
+      starttime = millis();
+    }
+};
+
 //
 // BUTTONS
 //
@@ -80,8 +97,8 @@ void registerButtons(){
 }
 
 bool pressed = false;
-long buttonTask = 0;
-byte pinOn = 0;
+MillisTimer buttonTimer(0);
+byte pinOn = NULL;
 
 void handleButton(){
   if (!pressed){
@@ -89,16 +106,14 @@ void handleButton(){
       if (digitalRead(buttons[i].input) == HIGH){
         pressed = true;
         pinOn = buttons[i].output;
+        buttonTimer = MillisTimer(buttons[i].milliTime);
       	analogDigitalWrite(buttons[i].output,true);
-        buttonTask = millis()+buttons[i].milliTime;
       }
     }
   }
-  else{
-    if (millis() > buttonTask){
-      pressed = false;
-      analogDigitalWrite(pinOn,false);
-    }
+  else if (buttonTimer.isReady()){
+    pressed = false;
+    analogDigitalWrite(pinOn,false);
   }
 }
 
@@ -128,28 +143,35 @@ int trackTemp(){
 // DATE
 //
 
-long dt_switch = 0;
 bool date_or_time = false;
+bool double_dot = false;
+
+MillisTimer dot(DOT_BLINK_TIME);
+MillisTimer date_time(TIME_DATE_SWITCH_DELAY);
 
 void writeTimeDate(int x, int y){
-  if (millis() > dt_switch+TIME_DATE_SWITCH_DELAY){
-    dt_switch = millis();
+  if (date_time.isReady()){
+    date_time.reset();
     date_or_time = !date_or_time;
   }
+  if (!date_or_time && dot.isReady()){
+    dot.reset();
+    double_dot = !double_dot;
+  }
   lcd.setCursor(x,y);
-  lcd.print(date_or_time ? "30.03.2022" : "19:00     ");
+  lcd.print(date_or_time ? "30.03.2022" : (double_dot ? "19:00     " : "19 00     "));
 }
 
 //
 // FADED TEXT
 //
-
-long lastChanged = 0;
+//
+MillisTimer fadeTimer(SCROLL_TEXT_SPEED);
 int pr = 0;
 
 void writeFadedText(int y,String text){
-  if (millis() >= lastChanged + SCROLL_TEXT_SPEED){
-    lastChanged = millis();
+  if (fadeTimer.isReady()){
+    fadeTimer.reset();
     String out = repeat(" ",LCD_SIZE);
     if (pr <= LCD_SIZE)
       out = repeat(" ",LCD_SIZE-pr)+text.substring(0,pr);
@@ -169,4 +191,8 @@ String repeat(String s, int times){
   String r = "";
   while (c--) r+= s;
   return r;
+}
+
+String numberStr(int i, int length){
+  return repeat("0",length - String(i).length())+String(i);
 }
