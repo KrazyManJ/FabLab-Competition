@@ -140,8 +140,15 @@ int trackTemp(){
 }
 
 //
-// DATE
+// TIME AND DATE
 //
+
+int day = 1;
+int month = 4;
+int year = 2022;
+int hour = 12;
+int minute = 0;
+
 
 bool date_or_time = false;
 bool double_dot = false;
@@ -159,13 +166,22 @@ void writeTimeDate(int x, int y){
     double_dot = !double_dot;
   }
   lcd.setCursor(x,y);
-  lcd.print(date_or_time ? "30.03.2022" : (double_dot ? "19:00     " : "19 00     "));
+  lcd.print(date_or_time 
+            ? formatDate() 
+            : formatTime(double_dot)+repeat(" ",formatDate().length()-formatTime(double_dot).length()));
+}
+
+String formatDate(){
+  return numberStr(day,2)+"."+numberStr(month,2)+"."+String(year);
+}
+String formatTime(bool colon){
+  return numberStr(hour,2)+(colon ? ":" : " ")+numberStr(minute,2);
 }
 
 //
 // FADED TEXT
 //
-//
+
 MillisTimer fadeTimer(SCROLL_TEXT_SPEED);
 int pr = 0;
 
@@ -173,10 +189,8 @@ void writeFadedText(int y,String text){
   if (fadeTimer.isReady()){
     fadeTimer.reset();
     String out = repeat(" ",LCD_SIZE);
-    if (pr <= LCD_SIZE)
-      out = repeat(" ",LCD_SIZE-pr)+text.substring(0,pr);
-    else if (pr <= text.length())
-      out = text.substring(pr-LCD_SIZE,pr);
+    if (pr <= LCD_SIZE) out = repeat(" ",LCD_SIZE-pr)+text.substring(0,pr);
+    else if (pr <= text.length()) out = text.substring(pr-LCD_SIZE,pr);
     else if (pr <= text.length()+LCD_SIZE) 
       out = text.substring(pr-LCD_SIZE)+repeat(" ",LCD_SIZE-text.substring(pr-LCD_SIZE).length());
     else pr = 0;
@@ -185,6 +199,10 @@ void writeFadedText(int y,String text){
     pr++;
   }
 }
+
+//
+// UTILS METHODS
+//
 
 String repeat(String s, int times){
   int c = times;
