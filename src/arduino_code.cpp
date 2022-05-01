@@ -8,24 +8,15 @@
 //
 
 #define LCD_SIZE 16
+#define LCD_DEFAULT_TEXT "www.vosassboskovice.cz"
 #define SCROLL_TEXT_SPEED 800
 #define TIME_DATE_SWITCH_DELAY 10000
-#define DOT_BLINK_TIME 600
-#define CONTRAST_OUTPUT_PIN A0
+#define COLON_BLINK_TIME 600
 
 #define TEMP_INPUT_PIN A1
 
 #define SD_CS_PIN 10
-#define SPEAKER_PIN 11
-
-#define BUILDING_A_BUTTON_PIN
-#define BUILDING_A_LED_PIN
-#define BUILDING_B_BUTTON_PIN
-#define BUILDING_B_LED_PIN
-#define BUILDING_C_BUTTON_PIN
-#define BUILDING_C_LED_PIN
-#define BUILDING_D_BUTTON_PIN
-#define BUILDING_D_LED_PIN
+#define SPEAKER_PIN 9
 
 //
 // LCD UTILS
@@ -35,8 +26,8 @@ LiquidCrystal_I2C lcd(0x27, LCD_SIZE, 2);
 
 class MillisTimer
 {
-	long starttime;
-	int delay;
+	unsigned long starttime;
+	unsigned int delay;
 
 public:
 	MillisTimer(int d)
@@ -46,11 +37,11 @@ public:
 	}
 	bool isReady()
 	{
-		return millis() > (starttime + delay);
-	}
-	void reset()
-	{
-		starttime = millis();
+		if (millis() > (starttime + delay)) {
+			starttime = millis();
+			return true;
+		}
+		return false;
 	}
 };
 
@@ -76,6 +67,31 @@ String numberStr(int i, int length)
 // TEMP
 //
 
+
+byte warning[8] = {
+	B00100,
+	B00100,
+	B01110,
+	B01010,
+	B01010,
+	B11111,
+	B11011,
+	B11111
+};
+byte temp[8] =                    
+{            
+	B00100,           
+	B01010,           
+	B01010,           
+	B01010,           
+	B01010,           
+	B10001,           
+	B10001,           
+	B01110,            
+};
+MillisTimer warningBlink(800);
+bool warnB;
+
 int trackTemp()
 {
 	return (int)map(analogRead(TEMP_INPUT_PIN), 20, 358, -40, 125);
@@ -83,6 +99,15 @@ int trackTemp()
 
 void writeTemp(int x, int y)
 {
+	if (analogRead(TEMP_INPUT_PIN) == 0){
+		lcd.setCursor(x, y);
+		lcd.print(" ");
+		if (warningBlink.isReady()) warnB = !warnB;
+		lcd.write(warnB ? 0 : ' ');
+		lcd.write(1);
+		lcd.print(" ");
+		return;
+	}
 	int temp = trackTemp();
 	temp = temp < 100 ? temp : 99;
 	temp = temp > -10 ? temp : -9;
@@ -97,15 +122,15 @@ void writeTemp(int x, int y)
 //
 
 int day = 1;
-int month = 4;
+int month = 5;
 int year = 2022;
-int hour = 12;
-int minute = 0;
+int hour = 17;
+int minute = 40;
 
 bool date_or_time = false;
-bool double_dot = false;
+bool colon = false;
 
-MillisTimer dot(DOT_BLINK_TIME);
+MillisTimer colon_timer(COLON_BLINK_TIME);
 MillisTimer date_time(TIME_DATE_SWITCH_DELAY);
 
 String formatDate()
@@ -119,20 +144,12 @@ String formatTime(bool colon)
 
 void writeTimeDate(int x, int y)
 {
-	if (date_time.isReady())
-	{
-		date_time.reset();
-		date_or_time = !date_or_time;
-	}
-	if (!date_or_time && dot.isReady())
-	{
-		dot.reset();
-		double_dot = !double_dot;
-	}
+	if (date_time.isReady()) date_or_time = !date_or_time;
+	if (!date_or_time && colon_timer.isReady()) colon = !colon;
 	lcd.setCursor(x, y);
 	lcd.print(date_or_time
 				  ? formatDate()
-				  : formatTime(double_dot) + repeat(" ", formatDate().length() - formatTime(double_dot).length()));
+				  : formatTime(colon) + repeat(" ", formatDate().length() - formatTime(colon).length()));
 }
 
 //
@@ -141,7 +158,7 @@ void writeTimeDate(int x, int y)
 
 String text = "";
 MillisTimer fadeTimer(SCROLL_TEXT_SPEED);
-int pr = 0;
+unsigned int pr = 0;
 
 void initializeFadedText()
 {
@@ -155,17 +172,16 @@ void initializeFadedText()
 	}
 }
 
-void writeFadedText(int y)
+void writeFadedText()
 {
 	if (text == "")
 	{
-		lcd.setCursor(0, y);
+		lcd.setCursor(0, 1);
 		lcd.print(" Err: Null text");
 		return;
 	}
 	if (fadeTimer.isReady())
 	{
-		fadeTimer.reset();
 		String out = repeat(" ", LCD_SIZE);
 		if (pr <= LCD_SIZE)
 			out = repeat(" ", LCD_SIZE - pr) + text.substring(0, pr) + repeat(" ", text.length() - pr + LCD_SIZE);
@@ -175,7 +191,7 @@ void writeFadedText(int y)
 			out = text.substring(pr - LCD_SIZE) + repeat(" ", LCD_SIZE - text.substring(pr - LCD_SIZE).length());
 		else
 			pr = 0;
-		lcd.setCursor(0, y);
+		lcd.setCursor(0, 1);
 		lcd.print(out);
 		pr++;
 	}
@@ -187,18 +203,17 @@ void writeFadedText(int y)
 
 void setup()
 {
-	pinMode(TEMP_INPUT_PIN, INPUT);
-	pinMode(CONTRAST_OUTPUT_PIN, OUTPUT);
+	Serial.begin(9600);
 
-	analogWrite(CONTRAST_OUTPUT_PIN, 0);
+	pinMode(TEMP_INPUT_PIN, INPUT);
+
 	lcd.begin(LCD_SIZE, 2);
 	lcd.backlight();
+	lcd.createChar(0, warning);
+	lcd.createChar(1, temp);
 
-	Serial.begin(9600);
-	
 	if (SD.begin(SD_CS_PIN)) initializeFadedText();
-	else
-		text = "www.vassboskovice.cz";
+	else text = LCD_DEFAULT_TEXT;
 }
 
 //
@@ -207,7 +222,7 @@ void setup()
 
 void loop()
 {
-	writeFadedText(0);
+	writeFadedText();
 	writeTimeDate(0, 1);
 	writeTemp(12, 1);
 	delay(1);
