@@ -18,7 +18,7 @@
 
 #define TEMP_INPUT_PIN 2
 #define TEMP_MODULE_TYPE DHT11
-#define TEMP_WARN_BLINK 800
+#define TEMP_WARN_BLINK 900
 
 #define SD_CS_PIN 53
 #define SPEAKER_PIN 46
@@ -39,38 +39,53 @@ class MillisTimer
 	unsigned long starttime;
 	unsigned int delay;
 
-	public:
-		MillisTimer(int d)
+public:
+	MillisTimer(int d)
+	{
+		delay = d;
+		starttime = millis();
+	}
+	bool isReady()
+	{
+		if (millis() > (starttime + delay))
 		{
-			delay = d;
-			starttime = millis();
+			reset();
+			return true;
 		}
-		bool isReady()
-		{
-			if (millis() > (starttime + delay))
-			{
-				starttime = millis();
-				return true;
-			}
-			return false;
-		}
+		return false;
+	}
+	void reset()
+	{
+		starttime = millis();
+	}
+	void setDelay(int d, boolean resetTimer)
+	{
+		delay = d;
+		if (resetTimer)
+			reset();
+	}
 };
 
+/**
+ * @brief Class fof handling timer using millis() function, which
+ * switches when timer is ready
+ */
 class MillisSwitchTimer
 {
 	MillisTimer timer;
 	bool value;
 
-	public:
-		MillisSwitchTimer(int d) : timer(d)
-		{
-			value = false;
-		}
-		bool getValue()
-		{
-			if(timer.isReady()) value = !value;
-			return value;
-		}
+public:
+	MillisSwitchTimer(int d) : timer(d)
+	{
+		value = false;
+	}
+	bool getValue()
+	{
+		if (timer.isReady())
+			value = !value;
+		return value;
+	}
 };
 
 //=====================================================================================
@@ -82,9 +97,8 @@ LiquidCrystal_I2C lcd(LCD_ADRESS, LCD_WIDTH, LCD_HEIGHT);
 byte warningChar[8] = {0x04, 0x04, 0x0E, 0x0A, 0x0A, 0x1F, 0x1B, 0x1F};
 byte tempChar[8] = {0x04, 0x0A, 0x0A, 0x0A, 0x0A, 0x11, 0x11, 0x0E};
 
-
 /**
- * Initialize LCD display and register custom characters
+ * @brief Initialize LCD display and register custom characters
  */
 void initializeLCD()
 {
@@ -100,8 +114,11 @@ void initializeLCD()
 
 /**
  * @brief Repeat sequence of string 
+ * 
  * @param sequence text to repear
  * @param times how many times to repeat string
+ * 
+ * @returns repeated string
  */
 String repeat(String sequence, int times)
 {
@@ -129,10 +146,15 @@ String numberStr(int number, int length)
 //										TEMPERATURE
 //=====================================================================================
 
+/**
+ * @brief Create instance of temperature sensor class
+ * 
+ * @return Temperature sensor object
+ */
 DHT dht(TEMP_INPUT_PIN, TEMP_MODULE_TYPE);
 
 /**
- * Initialize temperature sensor for future usage
+ * @brief Initialize temperature sensor for future usage
  */
 void tempInitialize()
 {
@@ -143,9 +165,11 @@ void tempInitialize()
 MillisSwitchTimer warn_sign_switch(TEMP_WARN_BLINK);
 
 /**
- * Gets temperature with minimum value of -9°C and maximum of 99°C
+ * @brief Gets temperature with minimum value of -9°C and maximum of 99°C
  * 
  * This is due to size of LCD.
+ * 
+ * @returns temperature in Celsius between -9°C and maximum of 99°C
  */
 int gatherBoundedTemp()
 {
@@ -155,7 +179,7 @@ int gatherBoundedTemp()
 }
 
 /**
- * Write temp at specific location.
+ * @brief Write temp at specific location.
  * 
  * If sensor is disconnected, then it will write temp warning text!
  */
@@ -184,7 +208,7 @@ void writeTemp(int x, int y)
 virtuabotixRTC myRTC(RTC_CLK_PIN, RTC_DAT_PIN, RTC_RST_PIN);
 
 /**
- * Sets time to specific inputted data.
+ * @brief Sets time to specific inputted data.
  */
 void updateTime(int year, int month, int day, int hour, int minutes)
 {
@@ -196,14 +220,14 @@ MillisSwitchTimer colon_switch(COLON_BLINK_TIME);
 MillisSwitchTimer date_time_switch(TIME_DATE_SWITCH_DELAY);
 
 /**
- * Formats date with data from RTC
+ * @brief Formats date with data from RTC
  */
 String formatDate()
 {
 	return numberStr(myRTC.dayofmonth, 2) + "." + numberStr(myRTC.month, 2) + "." + String(myRTC.year);
 }
 /**
- * Formats time with data from RTC
+ * @brief Formats time with data from RTC
  */
 String formatTime(bool colon)
 {
@@ -211,7 +235,7 @@ String formatTime(bool colon)
 }
 
 /**
- * Writes time or date specified by MillisTimer switch
+ * @brief Writes time or date specified by MillisTimer switch
  */
 void writeTimeDate(int x, int y)
 {
@@ -252,7 +276,7 @@ void initializeFadedText(bool hasSD)
 }
 
 /**
- * Write faded text to first line of LCD
+ * @brief Write faded text to first line of LCD
  */
 void writeFadedText()
 {
@@ -292,8 +316,59 @@ TMRpcm tmrpcm;
 void initializeSpeaker()
 {
 	tmrpcm.speakerPin = SPEAKER_PIN;
-	tmrpcm.setVolume(50);
-	tmrpcm.play((char *)"test");
+	tmrpcm.volume(1);
+	tmrpcm.setVolume(3);
+	tmrpcm.quality(1);
+	tmrpcm.play((char *)"test.wav");
+}
+
+//=====================================================================================
+//                      BUTTON HANDLE
+//=====================================================================================
+
+// input pin | output pin | delay
+struct btn
+{
+	int i;
+	int o;
+	int d;
+} btnContainer;
+
+btn buttons[] = {
+	{22, 23, 1000},
+	{24, 25, 4000},
+	{26, 27, 5000},
+	{28, 29, 10000}
+	};
+
+bool active = false;
+int activeLED = 0;
+MillisTimer button_action_time(1000);
+
+void handleButtons()
+{
+
+	if (active && button_action_time.isReady())
+	{
+		digitalWrite(activeLED, LOW);
+		activeLED = 0;
+		active = false;
+		//Stop audio
+		return;
+	}
+	for (unsigned int i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++)
+	{
+		bool value = digitalRead(buttons[i].i);
+		if (value && !active)
+		{
+			active = true;
+			button_action_time.setDelay(buttons[i].d, true);
+			activeLED = buttons[i].o;
+			digitalWrite(activeLED, HIGH);
+			//Play audio
+		}
+	}
+	
 }
 
 //=====================================================================================
@@ -315,4 +390,6 @@ void loop()
 	writeFadedText();
 	writeTimeDate(0, 1);
 	writeTemp(12, 1);
+	handleButtons();
+	delay(1);
 }
