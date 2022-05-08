@@ -2,7 +2,6 @@
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <SD.h>
-#include <TMRpcm.h>
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
 #include <virtuabotixRTC.h>
@@ -21,7 +20,6 @@
 #define TEMP_WARN_BLINK 900
 
 #define SD_CS_PIN 53
-#define SPEAKER_PIN 46
 
 #define RTC_CLK_PIN 5
 #define RTC_DAT_PIN 6
@@ -308,21 +306,6 @@ void writeFadedText()
 }
 
 //=====================================================================================
-//											SPEAKER
-//=====================================================================================
-
-TMRpcm tmrpcm;
-
-void initializeSpeaker()
-{
-	tmrpcm.speakerPin = SPEAKER_PIN;
-	tmrpcm.volume(1);
-	tmrpcm.setVolume(3);
-	tmrpcm.quality(1);
-	tmrpcm.play((char *)"test.wav");
-}
-
-//=====================================================================================
 //                      BUTTON HANDLE
 //=====================================================================================
 
@@ -353,7 +336,6 @@ void handleButtons()
 		digitalWrite(activeLED, LOW);
 		activeLED = 0;
 		active = false;
-		//Stop audio
 		return;
 	}
 	for (unsigned int i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++)
@@ -365,7 +347,6 @@ void handleButtons()
 			button_action_time.setDelay(buttons[i].d, true);
 			activeLED = buttons[i].o;
 			digitalWrite(activeLED, HIGH);
-			//Play audio
 		}
 	}
 	
@@ -382,7 +363,6 @@ void setup()
 	initializeLCD();
 	bool hasSD = SD.begin(SD_CS_PIN);
 	initializeFadedText(hasSD);
-	initializeSpeaker();
 }
 
 void loop()
