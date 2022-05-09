@@ -309,7 +309,6 @@ void writeFadedText()
 //                      BUTTON HANDLE
 //=====================================================================================
 
-// input pin | output pin | delay
 struct btn
 {
 	int i;
@@ -328,6 +327,9 @@ bool active = false;
 int activeLED = 0;
 MillisTimer button_action_time(1000);
 
+/**
+ * @brief Handle buttons click, if buttons are active or not, etc.
+ */
 void handleButtons()
 {
 
